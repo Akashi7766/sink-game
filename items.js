@@ -192,7 +192,7 @@ const ITEMS_RAW = [
   ['Leopard', '🐆', 60, [200, 70, 40], .97, 'box'], ['Wolf', '🐺', 40, [150, 80, 35], .97, 'box'], ['Fox', '🦊', 6, [90, 40, 20], .97, 'blob'],
   ['Deer', '🦌', 100, [180, 100, 50], .97, 'box'], ['Raccoon', '🦝', 8, [70, 30, 25], .95, 'blob'], ['Hedgehog', '🦔', .8, [20, 12, 12], .9, 'blob'],
   ['Skunk', '🦨', 3, [60, 25, 20], .95, 'blob'], ['Llama', '🦙', 150, [200, 170, 60], .9, 'box'], ['Goat', '🐐', 60, [130, 80, 40], .97, 'box'],
-  ['Bison', '🦬', 900, [300, 180, 110], .97, 'box'], ['Woolly Mammoth', '🦣', 6000, [550, 330, 250], .95, 'box'],
+  ['Bison', '🦬', 900, [300, 180, 110], .97, 'box', 0, 'Bison swim across rivers like the Yellowstone — air in their lungs keeps them just afloat.'], ['Woolly Mammoth', '🦣', 6000, [550, 330, 250], .95, 'box'],
   ['T. rex', '🦖', 8000, [1200, 400, 250], .85, 'long', 0, 'Air sacs in its body made it lighter than water (Henderson 2003).'],
   ['Brachiosaurus', '🦕', 40000, [2200, 1200, 300], .8, 'long', 0, 'Sauropods were full of air sacs — studies find they floated (Henderson 2004).'],
   ['Dodo', '🦤', 12, [70, 60, 40], .8, 'blob'], ['Peacock', '🦚', 5, [200, 60, 40], .6, 'long'], ['Parrot', '🦜', 1, [40, 15, 15], .6, 'blob'],

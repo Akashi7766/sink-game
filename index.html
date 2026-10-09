@@ -190,8 +190,14 @@ function newPair() {
 }
 const mins = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 const kg = m => m >= 1000 ? (m / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' t' : m >= 1 ? +m.toFixed(1) + ' kg' : Math.round(m * 1000 * 10) / 10 + ' g';
+// Things within ~6% of seawater's density are close calls in real life too — say so.
+function note(it) {
+  const r = it.rho / 1025, close = r > .94 && r < 1.06;
+  const n = it.base.note || (close ? (it.floats ? 'Only just floats — about as dense as seawater (air in the lungs makes the difference for animals).' : 'Only just sinks — barely denser than seawater, so it drifts down slowly.') : '');
+  return n ? ' · ' + n : '';
+}
 function describe(it) {
-  const facts = `<span class="facts">${kg(it.base.m)} · density ${(it.rho / 1000).toFixed(2)} vs seawater 1.03${it.base.note ? ' · ' + it.base.note : ''}</span>`;
+  const facts = `<span class="facts">${kg(it.base.m)} · density ${(it.rho / 1000).toFixed(2)} vs seawater 1.03${note(it)}</span>`;
   if (it.floats) return `floats — lighter than the water it pushes aside, it dips ${fmt(it.depth)} ${facts}`;
   const sp = `falls at ${it.v.toFixed(2)} m/s`;
   if (it.depth >= MAXD) return `${sp} and hits the bottom of the Mariana Trench after ${mins(MAXD / it.v)}! ${facts}`;
