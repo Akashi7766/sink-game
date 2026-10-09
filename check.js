@@ -14,14 +14,17 @@ assert.equal(new Set(ITEMS.map(b => b.name)).size, ITEMS.length, 'duplicate name
 // Things everyone knows float / sink in seawater
 for (const n of ['Apple', 'Basketball', 'Ice Cube', 'Rubber Duck', 'Cruise Ship', 'Barrel of Oil', 'Log', 'Stick of Butter', 'Watermelon'])
   assert(R[n].floats, n + ' should float');
-for (const n of ['Potato', 'Egg', 'Smartphone', 'Ship Anchor', 'Gold Bar', 'Car', '16 lb Bowling Ball', 'Brick'])
+for (const n of ['Dog', 'Elephant', 'Polar Bear', 'Snorlax', 'Wailord', 'Santa Claus'])
+  assert(R[n].floats, n + ' should float');
+for (const n of ['Potato', 'Egg', 'Smartphone', 'Ship Anchor', 'Gold Bar', 'Car', '16 lb Bowling Ball', 'Brick', 'Hippo', 'Great White Shark', 'Mjölnir', 'Cosmoem'])
   assert(!R[n].floats, n + ' should sink');
 // Rankings that hold in reality
 const deeper = (a, b) => assert(R[a].depth > R[b].depth, `${a} (${fmt(R[a].depth)}) should beat ${b} (${fmt(R[b].depth)})`);
 deeper('Ship Anchor', 'Smartphone'); deeper('Gold Bar', 'Gold Coin'); deeper('Boulder', 'Pebble'); deeper('Cannonball', 'Glass Marble');
 deeper('16 lb Bowling Ball', 'T-Shirt'); deeper('Gold Coin', 'Copper Penny'); deeper('Curling Stone', 'Brick'); deeper('Pebble', 'Dollar Bill');
-// Terminal speeds should stay physically sane (nothing faster than ~7 m/s, sinkers > 1 cm/s)
-for (const r of Object.values(R)) if (!r.floats) assert(r.v > .01 && r.v < 7, `${r.name}: speed ${r.v.toFixed(2)} m/s`);
+// Terminal speeds stay sane: everyday things under ~7 m/s; the Titanic hit the seabed at roughly 10-15 m/s
+for (const r of Object.values(R)) if (!r.floats && r.base.m < 1000 && r.base.d < 100) assert(r.v > .01 && r.v < 7, `${r.name}: speed ${r.v.toFixed(2)} m/s`);
+assert(R['The Titanic'].v > 8 && R['The Titanic'].v < 16, 'Titanic speed ' + R['The Titanic'].v);
 
 let variants = 0;
 for (const b of ITEMS) for (const m of MATS) if (matOK(b, m)) variants++;

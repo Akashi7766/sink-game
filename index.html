@@ -17,6 +17,8 @@
   #logo b { color:var(--coral); }
   #scores { padding:6px 14px; font-size:clamp(13px,2.2vw,18px); white-space:nowrap; }
   #scores span { color:var(--coral); }
+  #speed { pointer-events:auto; cursor:pointer; padding:6px 12px; font:700 clamp(13px,2.2vw,18px) Fredoka,system-ui,sans-serif; color:var(--ink); }
+  #speed.on { background:var(--sun); }
   #question { position:fixed; top:68px; left:50%; transform:translateX(-50%); padding:8px 20px; font-size:clamp(16px,3vw,24px); z-index:5; white-space:nowrap; transition:opacity .3s; }
   .pick { position:fixed; transform:translate(-50%,-100%); z-index:6; font:700 clamp(14px,2.4vw,20px) Fredoka,system-ui,sans-serif; color:var(--ink); background:#fff; border:3px solid var(--ink); border-radius:16px; box-shadow:0 5px 0 var(--ink); padding:10px 16px; cursor:pointer; max-width:44vw; transition:transform .12s, box-shadow .12s, opacity .3s, background .2s; }
   .pick:hover { transform:translate(-50%,calc(-100% - 3px)); box-shadow:0 8px 0 var(--ink); background:#fff7d6; }
@@ -52,7 +54,10 @@
 
 <div id="hud">
   <div id="logo" class="pill">🌊 How Far Will It <b>Sink?</b></div>
-  <div id="scores" class="pill">Score <span id="score">0</span> · Best <span id="best">0</span></div>
+  <div style="display:flex;gap:8px">
+    <button id="speed" class="pill" title="Toggle speed (F)">⏩ 1×</button>
+    <div id="scores" class="pill">Score <span id="score">0</span> · Best <span id="best">0</span></div>
+  </div>
 </div>
 <div id="question" class="pill hidden">Which one sinks deeper?</div>
 <button class="pick hidden" id="pick0"></button>
@@ -77,6 +82,7 @@
   <h1>How Far Will It <span>Sink?</span></h1>
   <p>Two objects are dropped over the Mariana Trench. Which one sinks <b>deeper in 30 minutes</b>?<br>Get it right to keep diving — one wrong guess and it's game over!</p>
   <p class="fine" id="count"></p>
+  <p class="fine">It gets harder fast — by a score of 10 the depths are within a few percent. Press <b>F</b> or ⏩ for 2× speed.</p>
   <button class="btn" id="play">Dive in 🤿</button>
   <p class="fine">Real physics: each object falls at its terminal velocity in seawater, from its weight, density and shape. "Gold", "Glass", "Wooden"… versions are solid statues of that material.</p>
 </div>
@@ -161,18 +167,28 @@ const BASE = ITEMS.filter(b => emojiOK(b.e)).length > ITEMS.length / 2 ? ITEMS.f
 // ================= PICKING (physics lives in items.js) =================
 function makeItem() {
   const b = pick(BASE);
-  let mat = Math.random() < .5 ? pick(MATS) : null;
+  let mat = Math.random() < .4 ? wpick(MATS) : null;
   if (mat && !matOK(b, mat)) mat = null;
   return makeVariant(b, mat);
 }
+// Difficulty: two sinkers must land within a depth window that tightens with score.
+// score 0 → ≥50% apart (easy) · 3 → 19–56% · 6 → 7–21% · 10 → 2–6% (really hard).
+function difficulty(sc) { const lo = Math.max(.02, .5 * Math.pow(.72, sc)); return { lo, hi: sc < 2 ? 1 : Math.min(1, lo * 3) }; }
 function newPair() {
-  const gap = Math.max(.05, .4 - score * .03); // closer calls as your score climbs
-  for (let i = 0; i < 1000; i++) {
+  const { lo: gLo, hi: gHi } = difficulty(score);
+  // Pick the round type first so close sinker pairs (rare in random draws) aren't crowded out.
+  // Floater rounds are "does it even sink?" questions; later they only use surprising slow sinkers.
+  const floaterRound = Math.random() < (score < 4 ? .25 : .1);
+  for (let i = 0; i < 20000; i++) {
     const a = makeItem(), b = makeItem();
     if (a.base === b.base || (a.floats && b.floats) || (a.depth >= MAXD && b.depth >= MAXD)) continue;
-    if ((a.floats || b.floats) && Math.random() < .75) continue; // floaters are easy calls; keep them occasional
-    const hi = Math.max(a.depth, b.depth), lo = Math.min(a.depth, b.depth);
-    if ((hi - lo) / hi > gap) return [a, b];
+    if (floaterRound) {
+      if ((a.floats || b.floats) && (score < 4 || (a.floats ? b : a).depth < 400)) return [a, b];
+      continue;
+    }
+    if (a.floats || b.floats) continue;
+    const r = (Math.max(a.depth, b.depth) - Math.min(a.depth, b.depth)) / Math.max(a.depth, b.depth);
+    if (r >= gLo && r <= gHi) return [a, b];
   }
   return newPair();
 }
@@ -405,7 +421,7 @@ function draw() {
     ctx.save(); ctx.globalAlpha = o.alpha * (o.it.mat && o.it.mat.a || 1); ctx.translate(x, y);
     const wob = o.st === 'water' ? Math.sin(t * 5 + o.ph) * .12 : o.st === 'hang' ? Math.sin(t * 1.3 + o.ph) * .05 : Math.sin(t + o.ph) * .05;
     ctx.rotate(wob);
-    ctx.drawImage(sprite(o.it.base.e, { c: o.it.mat && o.it.mat.c, l: o.it.mat && o.it.mat.l, outline: 1 }), -s / 2, -s / 2, s, s);
+    ctx.drawImage(sprite(o.it.base.e, { c: o.it.mat ? o.it.mat.c : o.it.base.c, l: o.it.mat && o.it.mat.l, outline: 1 }), -s / 2, -s / 2, s, s);
     ctx.restore();
   }
   // --- darkness with a diver's lamp around the camera and each object
@@ -582,10 +598,17 @@ function updateHUD() {
 }
 
 // ================= LOOP & INPUT =================
-let last = performance.now();
+let last = performance.now(), speed = +localStorage.getItem('sinkSpeed') === 2 ? 2 : 1;
+function setSpeed(v) {
+  speed = v; localStorage.setItem('sinkSpeed', v);
+  $('speed').textContent = v === 2 ? '⏩ 2×' : '⏩ 1×'; $('speed').classList.toggle('on', v === 2);
+}
+$('speed').onclick = () => { setSpeed(speed === 2 ? 1 : 2); $('speed').blur(); };
+setSpeed(speed);
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
-  update(dt); draw();
+  for (let i = 0; i < speed; i++) update(dt); // 2× = two steps per frame, keeps physics stable
+  draw();
   requestAnimationFrame(frame);
 }
 $('pick0').onclick = () => choose(0);
@@ -593,6 +616,7 @@ $('pick1').onclick = () => choose(1);
 $('rBtn').onclick = next;
 $('play').onclick = () => { $('start').classList.add('hidden'); state = 'choose'; lowerT = 1; };
 addEventListener('keydown', e => {
+  if (e.key === 'f' || e.key === 'F') setSpeed(speed === 2 ? 1 : 2);
   if (e.key === '1' || e.key === 'ArrowLeft') choose(0);
   if (e.key === '2' || e.key === 'ArrowRight') choose(1);
   if ((e.key === 'Enter' || e.key === ' ') && state === 'result') { e.preventDefault(); next(); }
