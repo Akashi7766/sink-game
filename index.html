@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>How Far Will It Sink?</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#12355b; --coral:#ff6b6b; --sun:#ffd43b; --good:#2fb85b; --bad:#ef4b4b; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#5cc8f5; font-family:Fredoka,"Segoe UI",system-ui,sans-serif; color:var(--ink); user-select:none; -webkit-user-select:none; }
+  canvas { display:block; position:fixed; inset:0; }
+  .pill { background:#fff; border:3px solid var(--ink); border-radius:999px; box-shadow:0 4px 0 var(--ink); font-weight:700; }
+  #hud { position:fixed; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; align-items:center; pointer-events:none; z-index:5; gap:8px; }
+  #logo { padding:6px 14px; font-size:clamp(13px,2.2vw,18px); }
+  #logo b { color:var(--coral); }
+  #scores { padding:6px 14px; font-size:clamp(13px,2.2vw,18px); white-space:nowrap; }
+  #scores span { color:var(--coral); }
+  #question { position:fixed; top:68px; left:50%; transform:translateX(-50%); padding:8px 20px; font-size:clamp(16px,3vw,24px); z-index:5; white-space:nowrap; transition:opacity .3s; }
+  .pick { position:fixed; transform:translate(-50%,-100%); z-index:6; font:700 clamp(14px,2.4vw,20px) Fredoka,system-ui,sans-serif; color:var(--ink); background:#fff; border:3px solid var(--ink); border-radius:16px; box-shadow:0 5px 0 var(--ink); padding:10px 16px; cursor:pointer; max-width:44vw; transition:transform .12s, box-shadow .12s, opacity .3s, background .2s; }
+  .pick:hover { transform:translate(-50%,calc(-100% - 3px)); box-shadow:0 8px 0 var(--ink); background:#fff7d6; }
+  .pick:active { transform:translate(-50%,calc(-100% + 3px)); box-shadow:0 2px 0 var(--ink); }
+  .pick.chosen { background:var(--sun); }
+  .pick kbd { display:inline-block; font:600 .7em Fredoka,sans-serif; background:#e8f1fb; border-radius:6px; padding:1px 6px; margin-right:6px; vertical-align:middle; }
+  #gauge { position:fixed; left:12px; top:50%; transform:translateY(-50%); z-index:5; padding:12px 10px; border-radius:20px; text-align:center; width:96px; pointer-events:none; transition:opacity .4s; }
+  #gauge small { display:block; font-size:11px; letter-spacing:.12em; opacity:.6; }
+  #depth { font-size:20px; line-height:1.1; margin:4px 0; }
+  #clock { font-size:13px; margin-top:6px; }
+  #zone { font-size:11px; color:#fff; border-radius:8px; padding:3px 4px; }
+  #track { position:relative; height:120px; width:10px; margin:10px auto 0; border-radius:6px; background:linear-gradient(#5cc8f5,#1667b8 20%,#0a2f66 40%,#05122e 65%,#010307); border:2px solid var(--ink); }
+  #marker { position:absolute; left:50%; width:20px; height:6px; margin-left:-10px; background:var(--sun); border:2px solid var(--ink); border-radius:4px; top:0; }
+  .card { position:fixed; left:50%; transform:translate(-50%,0); background:#fff; border:4px solid var(--ink); border-radius:24px; box-shadow:0 8px 0 var(--ink); padding:18px 22px; text-align:center; z-index:10; width:min(92vw,460px); }
+  #result { bottom:24px; transition:opacity .25s, transform .25s; }
+  #result.hidden { opacity:0; pointer-events:none; transform:translate(-50%,30px); }
+  #result h2 { margin:0 0 6px; font-size:28px; }
+  #result p { margin:4px 0; font-size:16px; font-weight:500; }
+  #result p b { font-weight:700; }
+  .btn { margin-top:12px; font:700 20px Fredoka,system-ui,sans-serif; color:var(--ink); background:var(--sun); border:3px solid var(--ink); border-radius:16px; box-shadow:0 5px 0 var(--ink); padding:10px 28px; cursor:pointer; }
+  .btn:hover { filter:brightness(1.05); transform:translateY(-2px); box-shadow:0 7px 0 var(--ink); }
+  .btn:active { transform:translateY(3px); box-shadow:0 2px 0 var(--ink); }
+  #start { top:50%; transform:translate(-50%,-50%); }
+  #start h1 { margin:0; font-size:clamp(32px,7vw,48px); line-height:1; }
+  #start h1 span { color:var(--coral); }
+  #start p { font-weight:500; margin:10px 0; }
+  #start .fine { font-size:12px; opacity:.6; }
+  .hidden { opacity:0; pointer-events:none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="logo" class="pill">🌊 How Far Will It <b>Sink?</b></div>
+  <div id="scores" class="pill">Score <span id="score">0</span> · Best <span id="best">0</span></div>
+</div>
+<div id="question" class="pill hidden">Which one sinks deeper?</div>
+<button class="pick hidden" id="pick0"></button>
+<button class="pick hidden" id="pick1"></button>
+
+<div id="gauge" class="pill hidden">
+  <small>DEPTH</small>
+  <div id="depth">0 m</div>
+  <div id="zone">Surface</div>
+  <div id="clock">⏱ 0:00</div>
+  <div id="track"><div id="marker"></div></div>
+</div>
+
+<div id="result" class="card hidden">
+  <h2 id="rTitle"></h2>
+  <p id="rLine1"></p>
+  <p id="rLine2"></p>
+  <button class="btn" id="rBtn">Next ➜</button>
+</div>
+
+<div id="start" class="card">
+  <h1>How Far Will It <span>Sink?</span></h1>
+  <p>Two objects are dropped over the Mariana Trench. Which one sinks <b>deeper in 30 minutes</b>?<br>Get it right to keep diving — one wrong guess and it's game over!</p>
+  <p class="fine" id="count"></p>
+  <button class="btn" id="play">Dive in 🤿</button>
+  <p class="fine">Real physics: each object falls at its terminal velocity in seawater, from its weight, density and shape. "Gold", "Glass", "Wooden"… versions are solid statues of that material.</p>
+</div>
+
+<script src="items.js"></script>
+<script>
+'use strict';
+// ================= DATA (items + sinking physics: items.js) =================
+const ZONES = [
+  {n:'Sunlight Zone',d:0,c:'#1e88e5'},{n:'Twilight Zone',d:200,c:'#3949ab'},{n:'Midnight Zone',d:1000,c:'#311b92'},
+  {n:'Abyssal Zone',d:4000,c:'#1a1440'},{n:'Hadal Zone',d:6000,c:'#000'},
+];
+const WATER = [[0,'#5cc8f5'],[20,'#2a9be0'],[100,'#1667b8'],[200,'#0e4a94'],[500,'#0a2f66'],[1000,'#071d45'],[2000,'#05122e'],[4000,'#030a1c'],[6000,'#02060f'],[11000,'#010307']];
+// creature pools per zone: e=emoji, s=size px, w=weight, sp=speed, min=min depth
+const POOLS = [
+  [{e:'🐟',s:34,w:5,sp:50},{e:'🐠',s:36,w:5,sp:45},{e:'🐡',s:38,w:2,sp:25},{e:'🐢',s:58,w:1.5,sp:30,min:3},{e:'🐬',s:84,w:1.2,sp:90,min:3},
+   {e:'🦈',s:110,w:.8,sp:70,min:8},{e:'🐟',s:22,w:2.5,sp:60,school:1},{e:'🐙',s:44,w:.6,sp:20,min:5},{e:'🦀',s:30,w:.3,sp:15,min:2}],
+  [{e:'🦑',s:60,w:2,sp:40},{e:'🐋',s:190,w:.6,sp:35},{e:'🦐',s:28,w:3,sp:20,c:'#ff3b3b'},{e:'🐟',s:26,w:3,sp:45,c:'#2a3550',lure:1},
+   {jelly:1,s:30,w:3,sp:8},{e:'🦈',s:90,w:.6,sp:50,c:'#556070'}],
+  [{angler:1,s:30,w:3,sp:12},{jelly:1,s:38,w:3,sp:6},{e:'🦑',s:160,w:.3,sp:25,c:'#b33a3a'},{e:'🐟',s:24,w:3,sp:40,c:'#1c2236',lure:1},{e:'🦐',s:26,w:2,sp:15,c:'#d22'}],
+  [{e:'🐙',s:50,w:2,sp:12,c:'#ff9ecb',l:.2},{jelly:1,s:28,w:2,sp:6},{angler:1,s:26,w:2,sp:10},{e:'🦐',s:22,w:2,sp:12,c:'#eeeeee',l:.3}],
+  [{e:'🐟',s:40,w:3,sp:15,c:'#f6d6e0',l:.35},{e:'🦐',s:20,w:3,sp:10,c:'#f2e6d0',l:.3},{jelly:1,s:24,w:1,sp:5}],
+];
+
+// ================= HELPERS =================
+const TAU = Math.PI * 2;
+const EF = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji","Twemoji Mozilla",sans-serif';
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const pick = a => a[Math.random() * a.length | 0];
+const rand = (a, b) => a + Math.random() * (b - a);
+const ease = p => 1 - Math.pow(1 - p, 3);
+const newCanvas = n => { const c = document.createElement('canvas'); c.width = c.height = n; return c; };
+function wpick(pool) { let t = 0; for (const p of pool) t += p.w; let r = Math.random() * t; for (const p of pool) if ((r -= p.w) < 0) return p; return pool[0]; }
+// depth (m) <-> world px. Linear for the first 10 m, then logarithmic so 11 km fits into one dive.
+const S = d => d <= 10 ? d * 60 : 600 + 900 * Math.log(d / 10);
+const D = y => y <= 0 ? 0 : y <= 600 ? y / 60 : 10 * Math.exp((y - 600) / 900);
+const zoneIdx = d => { let z = 0; ZONES.forEach((Z, i) => { if (d >= Z.d) z = i; }); return z; };
+function fmt(d) { return d < 1 ? Math.round(d * 100) + ' cm' : d < 10 ? d.toFixed(1) + ' m' : Math.round(d).toLocaleString() + ' m'; }
+function hex2rgb(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, n >> 8 & 255, n & 255]; }
+function waterColor(d) {
+  for (let i = 1; i < WATER.length; i++) if (d <= WATER[i][0]) {
+    const [d0, c0] = WATER[i - 1], [d1, c1] = WATER[i], t = (d - d0) / (d1 - d0), a = hex2rgb(c0), b = hex2rgb(c1);
+    return `rgb(${a.map((v, k) => Math.round(v + (b[k] - v) * t)).join(',')})`;
+  }
+  return WATER[WATER.length - 1][1];
+}
+
+// Emoji sprite cache: tint (luminance-preserving), lighten/darken, white sticker outline.
+const SPR = new Map();
+function sprite(e, o = {}) {
+  const key = e + '|' + (o.c || '') + '|' + (o.l || 0) + '|' + (o.outline ? 1 : 0);
+  let s = SPR.get(key); if (s) return s;
+  const N = 128, P = 14, Z = N + P * 2, c = newCanvas(Z), g = c.getContext('2d');
+  g.font = `${N * .8}px ${EF}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(e, Z / 2, Z / 2 + N * .05);
+  if (o.c) {
+    const m = newCanvas(Z); m.getContext('2d').drawImage(c, 0, 0);
+    g.globalCompositeOperation = 'color'; g.globalAlpha = .9; g.fillStyle = o.c; g.fillRect(0, 0, Z, Z);
+    g.globalAlpha = 1; g.globalCompositeOperation = 'destination-in'; g.drawImage(m, 0, 0);
+  }
+  if (o.l) { g.globalCompositeOperation = 'source-atop'; g.globalAlpha = Math.abs(o.l); g.fillStyle = o.l > 0 ? '#fff' : '#000'; g.fillRect(0, 0, Z, Z); g.globalAlpha = 1; }
+  g.globalCompositeOperation = 'source-over';
+  if (o.outline) {
+    const out = newCanvas(Z), og = out.getContext('2d');
+    for (let i = 0; i < 16; i++) og.drawImage(c, Math.cos(i / 16 * TAU) * 7, Math.sin(i / 16 * TAU) * 7);
+    og.globalCompositeOperation = 'source-in'; og.fillStyle = '#fff'; og.fillRect(0, 0, Z, Z);
+    og.globalCompositeOperation = 'source-over'; og.drawImage(c, 0, 0); s = out;
+  } else s = c;
+  SPR.set(key, s); return s;
+}
+// Drop emoji this device can't draw (tofu boxes render monochrome in fillStyle black).
+const testC = newCanvas(24), testG = testC.getContext('2d', { willReadFrequently: true });
+function emojiOK(e) {
+  testG.clearRect(0, 0, 24, 24); testG.fillStyle = '#000'; testG.font = '20px ' + EF; testG.textBaseline = 'top'; testG.fillText(e, 0, 0);
+  const d = testG.getImageData(0, 0, 24, 24).data;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] > 50 && d[i] + d[i + 1] + d[i + 2] > 60) return true;
+  return false;
+}
+const BASE = ITEMS.filter(b => emojiOK(b.e)).length > ITEMS.length / 2 ? ITEMS.filter(b => emojiOK(b.e)) : ITEMS; // detection unreliable → keep all
+
+// ================= PICKING (physics lives in items.js) =================
+function makeItem() {
+  const b = pick(BASE);
+  let mat = Math.random() < .5 ? pick(MATS) : null;
+  if (mat && !matOK(b, mat)) mat = null;
+  return makeVariant(b, mat);
+}
+function newPair() {
+  const gap = Math.max(.05, .4 - score * .03); // closer calls as your score climbs
+  for (let i = 0; i < 1000; i++) {
+    const a = makeItem(), b = makeItem();
+    if (a.base === b.base || (a.floats && b.floats) || (a.depth >= MAXD && b.depth >= MAXD)) continue;
+    if ((a.floats || b.floats) && Math.random() < .75) continue; // floaters are easy calls; keep them occasional
+    const hi = Math.max(a.depth, b.depth), lo = Math.min(a.depth, b.depth);
+    if ((hi - lo) / hi > gap) return [a, b];
+  }
+  return newPair();
+}
+const mins = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+function describe(it) {
+  if (it.floats) return `floats — it only dips ${fmt(it.depth)} into the water`;
+  const sp = `falls at ${it.v.toFixed(2)} m/s`;
+  if (it.depth >= MAXD) return `${sp} and hits the bottom of the Mariana Trench after ${mins(MAXD / it.v)}!`;
+  return `${sp} → <b>${fmt(it.depth)}</b> down after 30 min (${ZONES[zoneIdx(it.depth)].n})`;
+}
+
+// ================= WORLD =================
+const cv = $('c'), ctx = cv.getContext('2d');
+const DK = document.createElement('canvas'), dg = DK.getContext('2d');
+let W, H, DPR;
+let FISH = [], DOTS = [], SNOW = [], BUBBLES = [], SPLASH = [], CLOUDS = [];
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2); W = innerWidth; H = innerHeight;
+  for (const c of [cv, DK]) { c.width = W * DPR; c.height = H * DPR; }
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+}
+function genWorld() {
+  const end = S(MAXD);
+  for (let y = 40; y < end;) {
+    const d = D(y), pool = POOLS[zoneIdx(d)].filter(p => !p.min || d >= p.min), f = wpick(pool);
+    const dir = Math.random() < .5 ? -1 : 1, vx = dir * f.sp * rand(.6, 1.4), x = Math.random() * W;
+    if (f.school) for (let i = 0, n = 4 + Math.random() * 5 | 0; i < n; i++) FISH.push({ ...f, y: y + rand(-28, 28), x: x + rand(-70, 70), vx, ph: Math.random() * 9 });
+    else FISH.push({ ...f, y, x, vx, ph: Math.random() * 9 });
+    y += rand(60, 140) * (d < 10 ? 1.6 : 1);
+  }
+  for (let y = S(150); y < end; y += rand(10, 26)) DOTS.push({ y, x: Math.random(), c: pick(['#66ffff', '#55aaff', '#77ff99', '#cc88ff']), ph: Math.random() * 9, r: rand(1, 2.6) });
+  for (let i = 0; i < 90; i++) SNOW.push({ x: Math.random(), y: Math.random(), r: rand(.6, 2) });
+  for (let i = 0; i < 5; i++) CLOUDS.push({ x: Math.random(), k: rand(.42, .62), s: rand(.7, 1.3), v: rand(4, 10) });
+}
+
+// ================= GAME STATE =================
+let state = 'start', score = 0, best = +localStorage.getItem('sinkBest') || 0;
+let objs = [], chosen = -1, cam = { y: 0 }, t = 0, resT = 0, lowerT = 0, shake = 0, snapT = 0;
+// Sim clock: 30 real-world minutes play back in DIVE_SECS, on an exponential time-lapse so the
+// log-scaled ocean scrolls at an even pace.
+const DIVE_SECS = 9, TL = 8;
+let simP = 0, simT = 0;
+const camY0 = () => -H * .16;               // camera rest: water surface sits at 66% screen height
+const hangY = () => camY0() + H * .40 - H / 2; // world y of hanging objects
+const objSize = () => Math.min(W * .26, H * .19, 150);
+const toScreen = wy => wy - cam.y + H / 2;
+const isFloater = o => o.it.floats;
+
+function newRound() {
+  const pair = newPair();
+  objs = pair.map((it, i) => ({ it, xf: i ? .73 : .27, y: hangY(), vy: 0, st: 'hang', target: S(it.depth), ph: Math.random() * 9, tw: 0, alpha: 1 }));
+  chosen = -1; resT = 0; lowerT = 0; snapT = 0; simP = simT = 0; state = 'choose';
+  [0, 1].forEach(i => { const b = $('pick' + i); b.innerHTML = `<kbd>${i + 1}</kbd>` + objs[i].it.name; b.classList.remove('chosen'); });
+}
+function choose(i) {
+  if (state !== 'choose' || lowerT < 1) return;
+  chosen = i; state = 'drop'; snapT = 0;
+  $('pick' + i).classList.add('chosen');
+  setTimeout(() => { $('pick0').classList.add('hidden'); $('pick1').classList.add('hidden'); }, 250);
+  $('question').classList.add('hidden');
+  objs.forEach(o => { o.st = 'fall'; o.vy = -120; });
+}
+function showResult() {
+  const me = objs[chosen].it, other = objs[1 - chosen].it, win = me.depth > other.depth;
+  if (win) { score++; if (score > best) { best = score; localStorage.setItem('sinkBest', best); } }
+  $('rTitle').textContent = win ? 'Correct! 🎉 +1' : 'Glug glug… Game over 💥';
+  $('rTitle').style.color = win ? 'var(--good)' : 'var(--bad)';
+  $('rLine1').innerHTML = `<b>${me.name}</b> ${describe(me)}`;
+  $('rLine2').innerHTML = `<b>${other.name}</b> ${describe(other)}` + (win ? '' : `<br><br>Final score: <b>${score}</b> · Best: <b>${best}</b>`);
+  $('rBtn').textContent = win ? 'Next round ➜' : 'Play again 🔄';
+  $('rBtn').dataset.win = win ? 1 : 0;
+  $('result').classList.remove('hidden');
+  updateScore();
+  setTimeout(() => $('rBtn').focus(), 50);
+}
+function next() {
+  if (state !== 'result') return;
+  if ($('rBtn').dataset.win !== '1') score = 0;
+  updateScore();
+  $('result').classList.add('hidden');
+  state = 'ascend';
+}
+function updateScore() { $('score').textContent = score; $('best').textContent = best; }
+
+// ================= UPDATE =================
+let lastCamY = 0;
+function update(dt) {
+  t += dt;
+  // objects
+  for (const o of objs) {
+    if (o.st === 'hang') o.y = hangY() - (1 - ease(Math.min(lowerT, 1))) * H * .9;
+    else if (o.st === 'fall') {
+      o.vy += 2600 * dt; o.y += o.vy * dt;
+      if (o.y >= 0) { o.st = 'water'; o.vy *= .6; splash(o); }
+    } else if (o.st === 'water') {
+      o.tw += dt;
+      if (isFloater(o)) {
+        o.vy += (-(o.y - o.target) * 28 - o.vy * 3.2) * dt; o.y += o.vy * dt;
+        if (o.tw > 2.2 && Math.abs(o.vy) < 8) o.st = 'rest';
+      } else {
+        const d = Math.min(o.it.v * simT, o.it.depth), ny = Math.max(o.y, S(d)); // real depth at this sim time
+        o.vy = (ny - o.y) / dt; o.y = ny;
+        if (d >= o.it.depth) { o.y = o.target; o.st = 'rest'; }
+        if (o.vy > 80 && Math.random() < dt * 30) BUBBLES.push({ x: o.xf * W + rand(-20, 20), y: o.y + rand(-20, 10), r: rand(2, 6), v: rand(60, 140), ph: Math.random() * 9, life: 2.5 });
+      }
+    } else if (o.st === 'rest') o.y = o.target + Math.sin(t * (isFloater(o) ? 2 : 1.2) + o.ph) * (isFloater(o) ? 4 : 3);
+  }
+  if (state === 'choose') { lowerT += dt * 1.4; cam.y = camY0(); }
+  if (state === 'drop') {
+    snapT += dt;
+    if (objs.some(o => o.st === 'water' || o.st === 'rest')) {
+      simP = Math.min(1, simP + dt / DIVE_SECS);
+      simT = SINK_TIME * (Math.exp(TL * simP) - 1) / (Math.exp(TL) - 1);
+    }
+    cam.y += (Math.max(camY0(), ...objs.map(o => o.st === 'hang' ? -1e9 : o.y)) - cam.y) * Math.min(1, dt * 6);
+    if (objs.every(o => o.st === 'rest') && (resT += dt) > .6) { state = 'result'; showResult(); }
+  }
+  if (state === 'result') cam.y += (Math.max(...objs.map(o => o.y)) - cam.y) * Math.min(1, dt * 6);
+  if (state === 'ascend') {
+    objs.forEach(o => o.alpha = Math.max(0, o.alpha - dt * 2.5));
+    const dist = camY0() - cam.y;
+    cam.y += Math.sign(dist) * Math.min(Math.abs(dist), Math.max(Math.abs(dist) * dt * 3, 900 * dt));
+    if (Math.abs(dist) < 1) newRound();
+  }
+  const camDy = cam.y - lastCamY; lastCamY = cam.y;
+  // fish
+  for (const f of FISH) { f.x += f.vx * dt; if (f.x < -200) f.x = W + 200; if (f.x > W + 200) f.x = -200; }
+  // marine snow: world-fixed specks, so diving makes them stream upward
+  for (const s of SNOW) { s.y -= camDy / H; s.y += .012 * dt; s.y = ((s.y % 1) + 1) % 1; s.dy = camDy; }
+  for (const b of BUBBLES) { b.y -= b.v * dt; b.life -= dt; }
+  BUBBLES = BUBBLES.filter(b => b.life > 0 && b.y > 2);
+  for (const p of SPLASH) { p.vy += 1500 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+  SPLASH = SPLASH.filter(p => p.life > 0);
+  for (const c of CLOUDS) { c.x += c.v * dt / W; if (c.x > 1.2) c.x = -.2; }
+  shake = Math.max(0, shake - dt * 3);
+}
+function splash(o) {
+  shake = Math.min(1, shake + .5);
+  const x = o.xf * W;
+  for (let i = 0; i < 28; i++) SPLASH.push({ x: x + rand(-30, 30), y: -2, vx: rand(-260, 260), vy: rand(-750, -250), r: rand(3, 8), life: rand(.6, 1.1) });
+  SPLASH.push({ ring: 1, x, y: 0, life: 1 });
+  for (let i = 0; i < 25; i++) BUBBLES.push({ x: x + rand(-40, 40), y: rand(20, 160), r: rand(2, 7), v: rand(80, 200), ph: Math.random() * 9, life: 1.5 });
+}
+
+// ================= DRAW =================
+function draw() {
+  const sx = shake ? rand(-6, 6) * shake : 0, sy0 = shake ? rand(-6, 6) * shake : 0;
+  ctx.setTransform(DPR, 0, 0, DPR, sx * DPR, sy0 * DPR);
+  const surf = toScreen(0), camD = D(cam.y);
+  // --- sky
+  if (surf > 0) {
+    const g = ctx.createLinearGradient(0, surf - H, 0, surf);
+    g.addColorStop(0, '#6ec6ff'); g.addColorStop(1, '#d4f3ff');
+    ctx.fillStyle = g; ctx.fillRect(-10, -10, W + 20, surf + 20);
+    const sunX = W * .84, sunY = surf - H * .52;
+    const sg = ctx.createRadialGradient(sunX, sunY, 10, sunX, sunY, 120);
+    sg.addColorStop(0, 'rgba(255,240,150,.9)'); sg.addColorStop(1, 'rgba(255,240,150,0)');
+    ctx.fillStyle = sg; ctx.fillRect(sunX - 120, sunY - 120, 240, 240);
+    ctx.fillStyle = '#ffe066'; ctx.strokeStyle = '#f5b700'; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(sunX, sunY, 42, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    for (const c of CLOUDS) {
+      const x = c.x * W, y = surf - H * c.k, s = 34 * c.s;
+      ctx.beginPath(); ctx.arc(x, y, s, 0, TAU); ctx.arc(x + s, y + 6, s * .8, 0, TAU); ctx.arc(x - s, y + 8, s * .7, 0, TAU); ctx.arc(x + s * .3, y - s * .5, s * .7, 0, TAU); ctx.fill();
+    }
+  }
+  // --- water body (gradient sampled from real depth at each screen height)
+  const top = Math.max(-10, surf);
+  if (top < H) {
+    const g = ctx.createLinearGradient(0, top, 0, H);
+    for (let i = 0; i <= 8; i++) { const y = top + (H - top) * i / 8; g.addColorStop(i / 8, waterColor(D(y + cam.y - H / 2))); }
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(-10, H + 10);
+    for (let x = -10; x <= W + 20; x += 16) ctx.lineTo(x, surf + Math.sin(x * .02 + t * 2) * 4 + Math.sin(x * .007 - t * 1.3) * 3);
+    ctx.lineTo(W + 20, H + 10); ctx.fill();
+    if (surf > -20 && surf < H + 20) {
+      ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 4; ctx.beginPath();
+      for (let x = -10; x <= W + 20; x += 16) ctx.lineTo(x, surf + Math.sin(x * .02 + t * 2) * 4 + Math.sin(x * .007 - t * 1.3) * 3);
+      ctx.stroke();
+    }
+    // sun rays fading with depth
+    const ra = .07 * clamp(1 - camD / 180, 0, 1);
+    if (ra > 0) {
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 6; i++) {
+        const x0 = W * (.05 + i * .19) + Math.sin(t * .3 + i * 2) * 40, y0 = Math.max(surf, 0), len = 900;
+        const rg = ctx.createLinearGradient(0, y0, 0, y0 + len);
+        rg.addColorStop(0, `rgba(255,255,230,${ra})`); rg.addColorStop(1, 'rgba(255,255,230,0)');
+        ctx.fillStyle = rg; ctx.beginPath();
+        ctx.moveTo(x0, y0); ctx.lineTo(x0 + 40, y0); ctx.lineTo(x0 + 190, y0 + len); ctx.lineTo(x0 + 70, y0 + len); ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+  drawTrench();
+  // --- creatures (non-glowing)
+  for (const f of FISH) {
+    if (f.jelly || f.angler) continue;
+    const y = toScreen(f.y) + Math.sin(t * 1.5 + f.ph) * 6;
+    if (y < -150 || y > H + 150) continue;
+    const spr = sprite(f.e, { c: f.c, l: f.l }), s = f.s * 1.2;
+    ctx.save(); ctx.translate(f.x, y); if (f.vx > 0) ctx.scale(-1, 1);
+    ctx.rotate(Math.sin(t * 3 + f.ph) * .06); ctx.drawImage(spr, -s / 2, -s / 2, s, s); ctx.restore();
+  }
+  // --- bubbles & splash
+  ctx.lineWidth = 2;
+  for (const b of BUBBLES) {
+    const y = toScreen(b.y); if (y < -10 || y > H + 10) continue;
+    ctx.strokeStyle = `rgba(255,255,255,${Math.min(1, b.life) * .7})`;
+    ctx.beginPath(); ctx.arc(b.x + Math.sin(t * 4 + b.ph) * 4, y, b.r, 0, TAU); ctx.stroke();
+  }
+  for (const p of SPLASH) {
+    if (p.ring) {
+      ctx.strokeStyle = `rgba(255,255,255,${p.life})`; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(p.x, toScreen(0), 30 + (1 - p.life) * 120, 8 + (1 - p.life) * 18, 0, 0, TAU); ctx.stroke();
+    } else { ctx.fillStyle = `rgba(230,248,255,${Math.min(1, p.life * 1.5)})`; ctx.beginPath(); ctx.arc(p.x, toScreen(p.y), p.r, 0, TAU); ctx.fill(); }
+  }
+  // --- ropes and objects
+  const size = objSize();
+  for (const o of objs) {
+    const x = o.xf * W + (o.st === 'hang' ? Math.sin(t * 1.3 + o.ph) * 6 : 0), y = toScreen(o.y);
+    const s = size;
+    const ropeEnd = y - s * .32;
+    if (o.st === 'hang' || snapT < .5) {
+      const endY = o.st === 'hang' ? ropeEnd : (1 - ease(Math.min(snapT * 2, 1))) * (toScreen(hangY()) - s * .32);
+      ctx.strokeStyle = '#7a5230'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(o.xf * W, -10); ctx.quadraticCurveTo(o.xf * W, endY / 2, x, endY); ctx.stroke();
+    }
+    if (y < -s || y > H + s) continue;
+    ctx.save(); ctx.globalAlpha = o.alpha * (o.it.mat && o.it.mat.a || 1); ctx.translate(x, y);
+    const wob = o.st === 'water' ? Math.sin(t * 5 + o.ph) * .12 : o.st === 'hang' ? Math.sin(t * 1.3 + o.ph) * .05 : Math.sin(t + o.ph) * .05;
+    ctx.rotate(wob);
+    ctx.drawImage(sprite(o.it.base.e, { c: o.it.mat && o.it.mat.c, l: o.it.mat && o.it.mat.l, outline: 1 }), -s / 2, -s / 2, s, s);
+    ctx.restore();
+  }
+  // --- darkness with a diver's lamp around the camera and each object
+  const dark = camD < 25 ? 0 : clamp(Math.log10(camD / 25) / Math.log10(4000 / 25), 0, 1) * .88;
+  if (dark > 0 && top < H) {
+    dg.setTransform(DPR, 0, 0, DPR, 0, 0); dg.globalCompositeOperation = 'source-over'; dg.clearRect(0, 0, W, H);
+    dg.fillStyle = `rgba(0,2,12,${dark})`; dg.fillRect(0, Math.max(0, top), W, H);
+    dg.globalCompositeOperation = 'destination-out';
+    const hole = (x, y, r, a) => { const g = dg.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(0,0,0,${a})`); g.addColorStop(1, 'rgba(0,0,0,0)'); dg.fillStyle = g; dg.fillRect(x - r, y - r, r * 2, r * 2); };
+    hole(W / 2, H / 2, Math.max(W, H) * .5, .55);
+    for (const o of objs) if (o.alpha > 0) hole(o.xf * W, toScreen(o.y), size * 1.6, .95 * o.alpha);
+    ctx.drawImage(DK, 0, 0, W, H);
+  }
+  drawGlow(camD);
+  // --- marine snow + speed streaks
+  const sa = clamp((camD - 8) / 150, 0, .55);
+  if (sa > 0) {
+    ctx.fillStyle = ctx.strokeStyle = `rgba(220,235,255,${sa})`; ctx.lineWidth = 1.2;
+    for (const s of SNOW) {
+      const x = s.x * W, y = s.y * H, st = clamp(s.dy || 0, -60, 60) * .8;
+      if (Math.abs(st) > 3) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + st); ctx.stroke(); }
+      else { ctx.beginPath(); ctx.arc(x, y, s.r, 0, TAU); ctx.fill(); }
+    }
+  }
+  drawRuler();
+  drawTags(size);
+  // vignette underwater
+  if (camD > 1) {
+    const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .75);
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, `rgba(0,0,10,${.25 + dark * .4})`);
+    ctx.fillStyle = v; ctx.fillRect(-10, -10, W + 20, H + 20);
+  }
+  updateHUD();
+}
+function drawTrench() {
+  const noise = y => Math.sin(y * .013) * .5 + Math.sin(y * .031 + 1) * .3 + Math.sin(y * .071 + 2) * .2;
+  if (D(cam.y + H / 2) < 4500) return;
+  for (const side of [0, 1]) {
+    ctx.fillStyle = '#1b2440'; ctx.strokeStyle = '#3a4a7a'; ctx.lineWidth = 3; ctx.beginPath();
+    const edge = side ? W + 20 : -20; ctx.moveTo(edge, -10);
+    for (let y = -10; y <= H + 20; y += 20) {
+      const wy = y + cam.y - H / 2, k = clamp((D(wy) - 4500) / 2500, 0, 1);
+      const w = k * (W * .14 + noise(wy + side * 500) * W * .04);
+      ctx.lineTo(side ? W - w : w, y);
+    }
+    ctx.lineTo(edge, H + 20); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  const fy = toScreen(S(MAXD) + 55);
+  if (fy < H) {
+    const g = ctx.createLinearGradient(0, fy, 0, fy + 200); g.addColorStop(0, '#2b2f45'); g.addColorStop(1, '#0c0d15');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-10, H + 300);
+    for (let x = -10; x <= W + 20; x += 30) ctx.lineTo(x, fy + Math.sin(x * .05) * 6 + Math.sin(x * .013) * 10);
+    ctx.lineTo(W + 20, H + 300); ctx.fill();
+  }
+}
+function drawGlow(camD) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (const d of DOTS) {
+    const y = toScreen(d.y); if (y < -10 || y > H + 10) continue;
+    const a = (.5 + .5 * Math.sin(t * 2 + d.ph)) * clamp((D(d.y) - 150) / 500, 0, 1);
+    if (a < .05) continue;
+    const x = (d.x * W + t * 6 * Math.sin(d.ph)) % W;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, d.r * 5); g.addColorStop(0, d.c); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.globalAlpha = a; ctx.fillStyle = g; ctx.fillRect(x - d.r * 5, y - d.r * 5, d.r * 10, d.r * 10);
+  }
+  ctx.globalAlpha = 1;
+  for (const f of FISH) {
+    const y = toScreen(f.y) + Math.sin(t * 1.5 + f.ph) * 6;
+    if (y < -150 || y > H + 150) continue;
+    if (f.jelly) drawJelly(f.x, y, f.s, f.ph);
+    else if (f.angler) drawAngler(f.x, y, f.s, f.vx > 0, f.ph);
+    else if (f.lure) { const dx = (f.vx > 0 ? 1 : -1) * f.s * .55; glowDot(f.x + dx, y - 2, 8, '#88ffff', .5 + .5 * Math.sin(t * 3 + f.ph)); }
+  }
+  ctx.restore();
+}
+function glowDot(x, y, r, c, a) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3); g.addColorStop(0, c); g.addColorStop(.3, c + '88'); g.addColorStop(1, c + '00');
+  ctx.globalAlpha = a; ctx.fillStyle = g; ctx.fillRect(x - r * 3, y - r * 3, r * 6, r * 6); ctx.globalAlpha = 1;
+}
+function drawJelly(x, y, s, ph) {
+  const col = ph % 3 < 1 ? '#7ef9ff' : ph % 3 < 2 ? '#ff8ff0' : '#a6a1ff', p = Math.sin(t * 2 + ph) * .1;
+  glowDot(x, y, s * .7, col, .35);
+  ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y);
+  ctx.fillStyle = col + '99'; ctx.strokeStyle = col; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(0, 0, s * (.6 + p), s * (.5 - p), 0, Math.PI, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = col + 'aa'; ctx.lineWidth = 1.5;
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath(); ctx.moveTo(i * s * .22, 0);
+    for (let k = 1; k <= 6; k++) ctx.lineTo(i * s * .22 + Math.sin(t * 3 + k + i + ph) * 4, k * s * .22);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawAngler(x, y, s, right, ph) {
+  ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.translate(x, y); if (right) ctx.scale(-1, 1);
+  ctx.fillStyle = '#2a2342'; ctx.strokeStyle = '#5b4e8a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(s * 1.1, 0); ctx.lineTo(s * 1.7, -s * .5); ctx.lineTo(s * 1.7, s * .5); ctx.closePath(); ctx.fill(); ctx.stroke(); // tail
+  ctx.beginPath(); ctx.arc(0, 0, s, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#05030c'; ctx.beginPath(); ctx.moveTo(-s, -s * .1); ctx.lineTo(-s * .2, s * .25); ctx.lineTo(-s * .85, s * .6); ctx.closePath(); ctx.fill(); // mouth
+  ctx.fillStyle = '#eee';
+  for (let i = 0; i < 4; i++) { ctx.beginPath(); ctx.moveTo(-s * .9 + i * s * .18, -s * .02 + i * s * .09); ctx.lineTo(-s * .82 + i * s * .18, s * .2 + i * s * .07); ctx.lineTo(-s * .75 + i * s * .18, s * .02 + i * s * .08); ctx.fill(); }
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-s * .35, -s * .35, s * .18, 0, TAU); ctx.fill();
+  ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-s * .4, -s * .35, s * .09, 0, TAU); ctx.fill();
+  const lx = -s * 1.4 + Math.sin(t * 2 + ph) * 3, ly = -s * 1.3;
+  ctx.strokeStyle = '#5b4e8a'; ctx.beginPath(); ctx.moveTo(-s * .3, -s * .95); ctx.quadraticCurveTo(-s * .6, -s * 1.9, lx, ly); ctx.stroke();
+  ctx.globalCompositeOperation = 'lighter'; glowDot(lx, ly, s * .3, '#b8ffd0', .7 + .3 * Math.sin(t * 4 + ph));
+  ctx.restore();
+}
+const TICKS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000, MAXD];
+function drawRuler() {
+  if (toScreen(0) > H) return;
+  ctx.font = '600 12px Fredoka, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (const d of TICKS) {
+    const y = toScreen(S(d)); if (y < 70 || y > H - 10) continue;
+    ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(W - 18, y - 1, 14, 2);
+    ctx.fillText(d === MAXD ? 'Challenger Deep ' + fmt(d) : fmt(d), W - 24, y);
+  }
+  ctx.textAlign = 'center';
+  for (const z of ZONES.slice(1)) {
+    const y = toScreen(S(z.d)); if (y < 70 || y > H - 10) continue;
+    ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.setLineDash([10, 10]); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); ctx.setLineDash([]);
+    tag(`${z.n.toUpperCase()} · ${fmt(z.d)}`, W / 2, y, 'rgba(255,255,255,.9)', '#12355b', 13);
+  }
+}
+function tag(text, x, y, bg, fg, fs = 14) {
+  ctx.font = `700 ${fs}px Fredoka, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(text).width + 18, h = fs + 12;
+  x = clamp(x, w / 2 + 6, W - w / 2 - 6);
+  ctx.fillStyle = bg; ctx.strokeStyle = '#12355b'; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = fg; ctx.fillText(text, x, y + 1);
+}
+function drawTags(size) {
+  if (state !== 'drop' && state !== 'result') return;
+  const done = state === 'result';
+  const win = done ? objs.reduce((a, o, i) => o.it.depth > objs[a].it.depth ? i : a, 0) : -1;
+  objs.forEach((o, i) => {
+    if (o.st === 'hang' || o.st === 'fall') return;
+    const s = size, x = o.xf * W, y = toScreen(o.y);
+    const depthTxt = o.it.floats ? 'Floats 🛟' : done ? (i === win ? '🏆 ' : '') + fmt(o.it.depth) : fmt(D(o.y));
+    const label = (i === chosen ? '★ ' : '') + o.it.name;
+    if (y < 110) { // left behind above the screen
+      tag(`▲ ${label} · ${depthTxt}`, x, 110, '#fff', '#12355b', 14);
+    } else {
+      tag(label, x, y - s / 2 - 18, '#fff', '#12355b', 14);
+      tag(depthTxt, x, y + s / 2 + 16, done ? (i === win ? '#ffd43b' : '#e8f1fb') : '#e8f1fb', '#12355b', done ? 17 : 14);
+    }
+  });
+}
+let lastHud = '';
+function updateHUD() {
+  const under = state !== 'choose' && state !== 'start' && cam.y > camY0() + 20;
+  const d = state === 'result' ? Math.max(...objs.map(o => o.it.depth)) : state === 'drop' ? D(Math.max(0, ...objs.map(o => o.st === 'hang' ? 0 : o.y))) : D(cam.y);
+  const clk = state === 'drop' || state === 'result' ? '⏱ ' + mins(simT) + ' min' : '';
+  const key = under + '|' + fmt(d) + clk;
+  if (key !== lastHud) {
+    lastHud = key;
+    $('gauge').classList.toggle('hidden', !under);
+    $('depth').textContent = fmt(d); $('clock').textContent = clk;
+    const z = ZONES[zoneIdx(d)];
+    $('zone').textContent = d < .5 ? 'Surface' : z.n; $('zone').style.background = z.c;
+    $('marker').style.top = (clamp(S(d) / S(MAXD), 0, 1) * 112 - 3) + 'px';
+  }
+  if (state === 'choose') {
+    const size = objSize(), show = lowerT >= 1;
+    objs.forEach((o, i) => {
+      const b = $('pick' + i), s = size;
+      b.style.left = o.xf * W + 'px'; b.style.top = (toScreen(hangY()) - s * .55 - 12) + 'px';
+      b.classList.toggle('hidden', !show);
+    });
+    $('question').classList.toggle('hidden', !show);
+  }
+}
+
+// ================= LOOP & INPUT =================
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  update(dt); draw();
+  requestAnimationFrame(frame);
+}
+$('pick0').onclick = () => choose(0);
+$('pick1').onclick = () => choose(1);
+$('rBtn').onclick = next;
+$('play').onclick = () => { $('start').classList.add('hidden'); state = 'choose'; lowerT = 1; };
+addEventListener('keydown', e => {
+  if (e.key === '1' || e.key === 'ArrowLeft') choose(0);
+  if (e.key === '2' || e.key === 'ArrowRight') choose(1);
+  if ((e.key === 'Enter' || e.key === ' ') && state === 'result') { e.preventDefault(); next(); }
+});
+addEventListener('resize', () => { resize(); if (state === 'choose' || state === 'start') cam.y = camY0(); });
+
+resize(); genWorld(); updateScore();
+const total = BASE.length + BASE.reduce((n, b) => n + MATS.filter(m => matOK(b, m)).length, 0);
+$('count').textContent = `${total.toLocaleString()} objects to drop · ${fmt(MAXD)} of ocean`;
+newRound(); state = 'start'; cam.y = lastCamY = camY0();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
