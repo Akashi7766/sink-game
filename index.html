@@ -37,6 +37,7 @@
   #result.hidden { opacity:0; pointer-events:none; transform:translate(-50%,30px); }
   #result h2 { margin:0 0 6px; font-size:28px; }
   #result p { margin:4px 0; font-size:16px; font-weight:500; }
+  #result .facts { display:block; font-size:12.5px; opacity:.65; margin-bottom:4px; }
   #result p b { font-weight:700; }
   .btn { margin-top:12px; font:700 20px Fredoka,system-ui,sans-serif; color:var(--ink); background:var(--sun); border:3px solid var(--ink); border-radius:16px; box-shadow:0 5px 0 var(--ink); padding:10px 28px; cursor:pointer; }
   .btn:hover { filter:brightness(1.05); transform:translateY(-2px); box-shadow:0 7px 0 var(--ink); }
@@ -84,7 +85,7 @@
   <p class="fine" id="count"></p>
   <p class="fine">It gets harder fast — by a score of 10 the depths are within a few percent. Press <b>F</b> or ⏩ for 2× / 4× speed.</p>
   <button class="btn" id="play">Dive in 🤿</button>
-  <p class="fine">Real physics: each object falls at its terminal velocity in seawater, from its weight, density and shape. Floating things are judged by how deep they dip.</p>
+  <p class="fine">Real physics: each object falls at its terminal velocity in seawater, from its weight, density and shape. Floating things are judged by how deep they dip. Every result shows the real weight and density used.</p>
 </div>
 
 <script src="items.js"></script>
@@ -188,11 +189,13 @@ function newPair() {
   return newPair();
 }
 const mins = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+const kg = m => m >= 1000 ? (m / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 }) + ' t' : m >= 1 ? +m.toFixed(1) + ' kg' : Math.round(m * 1000 * 10) / 10 + ' g';
 function describe(it) {
-  if (it.floats) return `floats — it only dips ${fmt(it.depth)} into the water`;
+  const facts = `<span class="facts">${kg(it.base.m)} · density ${(it.rho / 1000).toFixed(2)} vs seawater 1.03${it.base.note ? ' · ' + it.base.note : ''}</span>`;
+  if (it.floats) return `floats — lighter than the water it pushes aside, it dips ${fmt(it.depth)} ${facts}`;
   const sp = `falls at ${it.v.toFixed(2)} m/s`;
-  if (it.depth >= MAXD) return `${sp} and hits the bottom of the Mariana Trench after ${mins(MAXD / it.v)}!`;
-  return `${sp} → <b>${fmt(it.depth)}</b> down after 30 min (${ZONES[zoneIdx(it.depth)].n})`;
+  if (it.depth >= MAXD) return `${sp} and hits the bottom of the Mariana Trench after ${mins(MAXD / it.v)}! ${facts}`;
+  return `${sp} → <b>${fmt(it.depth)}</b> down after 30 min ${facts}`;
 }
 
 // ================= WORLD =================

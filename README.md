@@ -7,7 +7,7 @@ A browser game: two objects are dropped over the Mariana Trench. Pick the one th
 - Rounds are either “which sinks deeper”, “which floating thing dips deeper”, or “does it even sink?”
 - Press **F** (or the ⏩ button) to cycle 1× / 2× / 4× speed
 - A dive through all five ocean zones with depth-appropriate sea life, down to the Challenger Deep (10,935 m)
-- Depths come from real terminal-velocity physics in seawater (weight, density, shape)
+- Depths come from real physics: each object has its real mass and size; buoyancy decides float vs sink, and terminal velocity (drag from its real dimensions) decides how far it falls in 30 minutes. Each result shows the weight and density used.
 
 ## Play
 
@@ -21,4 +21,4 @@ python -m http.server 5173
 
 - `index.html` – the game (canvas rendering, UI, game loop)
 - `items.js` – item data and sinking physics
-- `check.js` – sanity check for item values: `node check.js` prints every item's speed and depth
+- `check.js` – tests the formula against measured sinking speeds and checks every item's mass fits its size; `node check.js` prints every item's speed, density and depth
