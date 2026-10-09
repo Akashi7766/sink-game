@@ -82,9 +82,9 @@
   <h1>How Far Will It <span>Sink?</span></h1>
   <p>Two objects are dropped over the Mariana Trench. Which one sinks <b>deeper in 30 minutes</b>?<br>Get it right to keep diving — one wrong guess and it's game over!</p>
   <p class="fine" id="count"></p>
-  <p class="fine">It gets harder fast — by a score of 10 the depths are within a few percent. Press <b>F</b> or ⏩ for 2× speed.</p>
+  <p class="fine">It gets harder fast — by a score of 10 the depths are within a few percent. Press <b>F</b> or ⏩ for 2× / 4× speed.</p>
   <button class="btn" id="play">Dive in 🤿</button>
-  <p class="fine">Real physics: each object falls at its terminal velocity in seawater, from its weight, density and shape. "Gold", "Glass", "Wooden"… versions are solid statues of that material.</p>
+  <p class="fine">Real physics: each object falls at its terminal velocity in seawater, from its weight, density and shape. Floating things are judged by how deep they dip.</p>
 </div>
 
 <script src="items.js"></script>
@@ -165,28 +165,23 @@ function emojiOK(e) {
 const BASE = ITEMS.filter(b => emojiOK(b.e)).length > ITEMS.length / 2 ? ITEMS.filter(b => emojiOK(b.e)) : ITEMS; // detection unreliable → keep all
 
 // ================= PICKING (physics lives in items.js) =================
-function makeItem() {
-  const b = pick(BASE);
-  let mat = Math.random() < .4 ? wpick(MATS) : null;
-  if (mat && !matOK(b, mat)) mat = null;
-  return makeVariant(b, mat);
-}
+const makeItem = () => makeVariant(pick(BASE));
 // Difficulty: two sinkers must land within a depth window that tightens with score.
 // score 0 → ≥50% apart (easy) · 3 → 19–56% · 6 → 7–21% · 10 → 2–6% (really hard).
 function difficulty(sc) { const lo = Math.max(.02, .5 * Math.pow(.72, sc)); return { lo, hi: sc < 2 ? 1 : Math.min(1, lo * 3) }; }
 function newPair() {
   const { lo: gLo, hi: gHi } = difficulty(score);
-  // Pick the round type first so close sinker pairs (rare in random draws) aren't crowded out.
-  // Floater rounds are "does it even sink?" questions; later they only use surprising slow sinkers.
-  const floaterRound = Math.random() < (score < 4 ? .25 : .1);
+  // Pick the round type first so close pairs (rare in random draws) aren't crowded out.
+  // 'mixed' is a "does it even sink?" question; later it only uses surprising slow sinkers.
+  const r0 = Math.random(), type = r0 < (score < 4 ? .2 : .1) ? 'mixed' : r0 < .45 ? 'float' : 'sink';
   for (let i = 0; i < 20000; i++) {
     const a = makeItem(), b = makeItem();
-    if (a.base === b.base || (a.floats && b.floats) || (a.depth >= MAXD && b.depth >= MAXD)) continue;
-    if (floaterRound) {
-      if ((a.floats || b.floats) && (score < 4 || (a.floats ? b : a).depth < 400)) return [a, b];
+    if (a.base === b.base || (a.depth >= MAXD && b.depth >= MAXD)) continue;
+    if (type === 'mixed') {
+      if (a.floats !== b.floats && (score < 4 || (a.floats ? b : a).depth < 400)) return [a, b];
       continue;
     }
-    if (a.floats || b.floats) continue;
+    if (a.floats !== b.floats || a.floats !== (type === 'float')) continue;
     const r = (Math.max(a.depth, b.depth) - Math.min(a.depth, b.depth)) / Math.max(a.depth, b.depth);
     if (r >= gLo && r <= gHi) return [a, b];
   }
@@ -418,10 +413,10 @@ function draw() {
       ctx.beginPath(); ctx.moveTo(o.xf * W, -10); ctx.quadraticCurveTo(o.xf * W, endY / 2, x, endY); ctx.stroke();
     }
     if (y < -s || y > H + s) continue;
-    ctx.save(); ctx.globalAlpha = o.alpha * (o.it.mat && o.it.mat.a || 1); ctx.translate(x, y);
+    ctx.save(); ctx.globalAlpha = o.alpha; ctx.translate(x, y);
     const wob = o.st === 'water' ? Math.sin(t * 5 + o.ph) * .12 : o.st === 'hang' ? Math.sin(t * 1.3 + o.ph) * .05 : Math.sin(t + o.ph) * .05;
     ctx.rotate(wob);
-    ctx.drawImage(sprite(o.it.base.e, { c: o.it.mat ? o.it.mat.c : o.it.base.c, l: o.it.mat && o.it.mat.l, outline: 1 }), -s / 2, -s / 2, s, s);
+    ctx.drawImage(sprite(o.it.base.e, { c: o.it.base.c, outline: 1 }), -s / 2, -s / 2, s, s);
     ctx.restore();
   }
   // --- darkness with a diver's lamp around the camera and each object
@@ -562,7 +557,7 @@ function drawTags(size) {
   objs.forEach((o, i) => {
     if (o.st === 'hang' || o.st === 'fall') return;
     const s = size, x = o.xf * W, y = toScreen(o.y);
-    const depthTxt = o.it.floats ? 'Floats 🛟' : done ? (i === win ? '🏆 ' : '') + fmt(o.it.depth) : fmt(D(o.y));
+    const depthTxt = o.it.floats ? (done ? (i === win ? '🏆 ' : '') + '🛟 dips ' + fmt(o.it.depth) : 'Floating 🛟') : done ? (i === win ? '🏆 ' : '') + fmt(o.it.depth) : fmt(D(o.y));
     const label = (i === chosen ? '★ ' : '') + o.it.name;
     if (y < 110) { // left behind above the screen
       tag(`▲ ${label} · ${depthTxt}`, x, 110, '#fff', '#12355b', 14);
@@ -598,16 +593,17 @@ function updateHUD() {
 }
 
 // ================= LOOP & INPUT =================
-let last = performance.now(), speed = +localStorage.getItem('sinkSpeed') === 2 ? 2 : 1;
+let last = performance.now(), speed = [1, 2, 4].includes(+localStorage.getItem('sinkSpeed')) ? +localStorage.getItem('sinkSpeed') : 1;
 function setSpeed(v) {
   speed = v; localStorage.setItem('sinkSpeed', v);
-  $('speed').textContent = v === 2 ? '⏩ 2×' : '⏩ 1×'; $('speed').classList.toggle('on', v === 2);
+  $('speed').textContent = `⏩ ${v}×`; $('speed').classList.toggle('on', v > 1);
 }
-$('speed').onclick = () => { setSpeed(speed === 2 ? 1 : 2); $('speed').blur(); };
+const cycleSpeed = () => setSpeed(speed === 1 ? 2 : speed === 2 ? 4 : 1);
+$('speed').onclick = () => { cycleSpeed(); $('speed').blur(); };
 setSpeed(speed);
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
-  for (let i = 0; i < speed; i++) update(dt); // 2× = two steps per frame, keeps physics stable
+  for (let i = 0; i < speed; i++) update(dt); // 2×/4× = more steps per frame, keeps physics stable
   draw();
   requestAnimationFrame(frame);
 }
@@ -616,7 +612,7 @@ $('pick1').onclick = () => choose(1);
 $('rBtn').onclick = next;
 $('play').onclick = () => { $('start').classList.add('hidden'); state = 'choose'; lowerT = 1; };
 addEventListener('keydown', e => {
-  if (e.key === 'f' || e.key === 'F') setSpeed(speed === 2 ? 1 : 2);
+  if (e.key === 'f' || e.key === 'F') cycleSpeed();
   if (e.key === '1' || e.key === 'ArrowLeft') choose(0);
   if (e.key === '2' || e.key === 'ArrowRight') choose(1);
   if ((e.key === 'Enter' || e.key === ' ') && state === 'result') { e.preventDefault(); next(); }
@@ -624,8 +620,7 @@ addEventListener('keydown', e => {
 addEventListener('resize', () => { resize(); if (state === 'choose' || state === 'start') cam.y = camY0(); });
 
 resize(); genWorld(); updateScore();
-const total = BASE.length + BASE.reduce((n, b) => n + MATS.filter(m => matOK(b, m)).length, 0);
-$('count').textContent = `${total.toLocaleString()} objects to drop · ${fmt(MAXD)} of ocean`;
+$('count').textContent = `${BASE.length} objects to drop · ${fmt(MAXD)} of ocean`;
 newRound(); state = 'start'; cam.y = lastCamY = camY0();
 requestAnimationFrame(frame);
 </script>

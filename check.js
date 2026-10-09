@@ -1,6 +1,6 @@
 // Sanity check for items.js: `node check.js` prints every item's sinking result and
 // asserts well-known real-world outcomes. `node check.js -q` skips the table.
-const { ITEMS, MATS, SHAPES, MAXD, makeVariant, matOK } = require('./items.js');
+const { ITEMS, SHAPES, MAXD, makeVariant } = require('./items.js');
 const assert = require('assert');
 const fmt = d => d < 1 ? Math.round(d * 100) + ' cm' : Math.round(d).toLocaleString() + ' m';
 const R = Object.fromEntries(ITEMS.map(b => [b.name, makeVariant(b, null)]));
@@ -26,9 +26,8 @@ deeper('16 lb Bowling Ball', 'T-Shirt'); deeper('Gold Coin', 'Copper Penny'); de
 for (const r of Object.values(R)) if (!r.floats && r.base.m < 1000 && r.base.d < 100) assert(r.v > .01 && r.v < 7, `${r.name}: speed ${r.v.toFixed(2)} m/s`);
 assert(R['The Titanic'].v > 8 && R['The Titanic'].v < 16, 'Titanic speed ' + R['The Titanic'].v);
 
-let variants = 0;
-for (const b of ITEMS) for (const m of MATS) if (matOK(b, m)) variants++;
-console.log(`${ITEMS.length} items + ${variants} material versions = ${ITEMS.length + variants} objects. All checks passed.`);
+assert.equal(ITEMS.filter(b => b.e && b.name.trim().length > 0).length, ITEMS.length, 'every item needs a name + emoji');
+console.log(`${ITEMS.length} objects. All checks passed.`);
 if (!process.argv.includes('-q')) {
   const rows = Object.values(R).sort((a, b) => (a.floats - b.floats) || b.depth - a.depth || a.depth - b.depth);
   for (const r of rows) console.log(r.floats ? `  floats  ${fmt(r.depth).padStart(8)} draft   ${r.name}`

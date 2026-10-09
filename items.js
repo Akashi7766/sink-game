@@ -24,10 +24,14 @@ const SHAPES = {
   sheet: 40,  // soaked fabric, paper, leaves
 };
 const DRAFT = { ball: 1.24, flat: .3, thin: .15, long: .6, sheet: .05 }; // height ÷ V^(1/3)
-// Material swaps make a solid statue with the same outside volume. That only works when
-// m/ρ is the outside volume, i.e. not for open/flooded/frame/fabric shapes — and only for
-// things under a tonne (a solid-gold cruise ship is just silly).
-const NO_MAT = new Set(['open', 'frame', 'shell', 'sheet']);
+// Pokémon: official Pokédex height (m) and weight (kg). Volume ≈ k·height³ with k from the body
+// shape PokéAPI lists (Pokémon humanoids are stockier than a real person's k≈0.013), so
+// density = weight / volume. Round ones PokéAPI calls "humanoid" (Snorlax, Golem…) use round shapes.
+// The Pokédex makes most Pokémon very light for their size, so most of them float!
+const POKE_SHAPE = { ball: [.4, 'ball'], squiggle: [.012, 'long'], fish: [.12, 'long'], arms: [.15, 'blob'], blob: [.25, 'blob'],
+  upright: [.09, 'blob'], legs: [.1, 'blob'], quadruped: [.17, 'box'], wings: [.06, 'flat'], tentacles: [.12, 'blob'],
+  heads: [.12, 'blob'], humanoid: [.03, 'long'], 'bug-wings': [.04, 'flat'], armor: [.2, 'box'] };
+const poke = (name, e, h, w, body, tint) => { const [k, shape] = POKE_SHAPE[body]; return [name, e, w / (k * h ** 3 * 1000), w, shape, tint]; };
 
 function physics(den, mass, shape) {
   const rho = den * 1000, V = mass / rho;
@@ -183,16 +187,63 @@ const ITEMS_RAW = [
   ['Hippo', '🦛', 1.05, 1500, 'box'], ['Great White Shark', '🦈', 1.04, 1000, 'long'], ['Octopus', '🐙', 1.04, 3, 'blob'],
   ['Crab', '🦀', 1.2, .5, 'box'], ['Lobster', '🦞', 1.15, .7, 'long'], ['Shrimp', '🦐', 1.07, .01, 'long'],
   ['Oyster', '🦪', 1.8, .1, 'flat'], ['Snail', '🐌', 1.3, .01, 'blob'], ['Earthworm', '🪱', 1.05, .005, 'long'],
-  // ---- pop culture. Pokémon use official Pokédex height & weight; volume estimated from body shape.
-  ['Pikachu', '🐭', .76, 6, 'blob', '#ffd43b'], ['Snorlax', '🐻', .155, 460, 'blob', '#2f7f8f'], ['Jigglypuff', '⚪', .085, 5.5, 'ball', '#ff9ecb'],
-  ['Geodude', '🪨', .6, 20, 'blob', '#8d8378'], ['Aron', '🦏', 1.8, 60, 'blob', '#9aa3ad'], ['Cosmoem', '🌕', 1908, 999.9, 'ball', '#e8b84a'],
-  ['Magikarp', '🐟', .19, 10, 'flat', '#ff7043'], ['Wailord', '🐋', .00125, 398, 'blob', '#3d7fd9'], ['Onix', '🐍', .06, 210, 'long', '#8d8d8d'],
-  ['Charizard', '🐉', .9, 90.5, 'blob', '#ff8a3d'], ['Squirtle', '🐢', .33, 9, 'blob', '#5bb8ff'], ['Bulbasaur', '🐸', .09, 6.9, 'blob', '#4fc3a1'],
-  ['Gengar', '👻', .043, 40.5, 'blob', '#7e57c2'], ['Mewtwo', '👽', 1.17, 122, 'long', '#c9a7e8'], ['Machamp', '💪', 1.87, 130, 'blob', '#8fa3c7'],
+  // ---- Pokémon: all 151 Kanto Pokémon from the official Pokédex (via PokéAPI) — see poke() above
+  poke('Bulbasaur', '🐸', 0.7, 6.9, 'quadruped', '#5cb85c'), poke('Ivysaur', '🐸', 1, 13, 'quadruped', '#5cb85c'), poke('Venusaur', '🐸', 2, 100, 'quadruped', '#5cb85c'),
+  poke('Charmander', '🦎', 0.6, 8.5, 'upright', '#ff7a3d'), poke('Charmeleon', '🦎', 1.1, 19, 'upright', '#ff7a3d'), poke('Charizard', '🐉', 1.7, 90.5, 'upright', '#ff7a3d'),
+  poke('Squirtle', '🐢', 0.5, 9, 'upright', '#4a90e2'), poke('Wartortle', '🐢', 1, 22.5, 'upright', '#4a90e2'), poke('Blastoise', '🐢', 1.6, 85.5, 'upright', '#4a90e2'),
+  poke('Caterpie', '🐛', 0.3, 2.9, 'armor', '#a8b820'), poke('Metapod', '🐛', 0.7, 9.9, 'arms', '#a8b820'), poke('Butterfree', '🦋', 1.1, 32, 'bug-wings', '#a8b820'),
+  poke('Weedle', '🐛', 0.3, 3.2, 'armor', '#a8b820'), poke('Kakuna', '🐛', 0.6, 10, 'arms', '#a8b820'), poke('Beedrill', '🐝', 1, 29.5, 'bug-wings', '#a8b820'),
+  poke('Pidgey', '🐦', 0.3, 1.8, 'wings', '#b8834f'), poke('Pidgeotto', '🐦', 1.1, 30, 'wings', '#b8834f'), poke('Pidgeot', '🦅', 1.5, 39.5, 'wings', '#b8834f'),
+  poke('Rattata', '🐀', 0.3, 3.5, 'quadruped', '#9a6fc0'), poke('Raticate', '🐀', 0.7, 18.5, 'quadruped', '#c8b88a'), poke('Spearow', '🐦', 0.3, 2, 'wings', '#a87b4a'),
+  poke('Fearow', '🦅', 1.2, 38, 'wings', '#a87b4a'), poke('Ekans', '🐍', 2, 6.9, 'squiggle', '#a05cc8'), poke('Arbok', '🐍', 3.5, 65, 'squiggle', '#a05cc8'),
+  poke('Pikachu', '🐭', 0.4, 6, 'quadruped', '#ffd43b'), poke('Raichu', '🐭', 0.8, 30, 'upright', '#ffd43b'), poke('Sandshrew', '🦔', 0.6, 12, 'upright', '#d4a95a'),
+  poke('Sandslash', '🦔', 1, 29.5, 'upright', '#d4a95a'), poke('Nidoran♀', '🐇', 0.4, 7, 'quadruped', '#7fb0e0'), poke('Nidorina', '🐇', 0.8, 20, 'quadruped', '#7fb0e0'),
+  poke('Nidoqueen', '🦏', 1.3, 60, 'upright', '#5b8def'), poke('Nidoran♂', '🐇', 0.5, 9, 'quadruped', '#a05cc8'), poke('Nidorino', '🦏', 0.9, 19.5, 'quadruped', '#a05cc8'),
+  poke('Nidoking', '🦏', 1.4, 62, 'upright', '#a05cc8'), poke('Clefairy', '🧚', 0.6, 7.5, 'upright', '#ff9ecb'), poke('Clefable', '🧚', 1.3, 40, 'upright', '#ff9ecb'),
+  poke('Vulpix', '🦊', 0.6, 9.9, 'quadruped', '#c8693a'), poke('Ninetales', '🦊', 1.1, 19.9, 'quadruped', '#f2e1a6'), poke('Jigglypuff', '⚪', 0.5, 5.5, 'ball', '#ff9ecb'),
+  poke('Wigglytuff', '🐇', 1, 12, 'ball', '#ff9ecb'), poke('Zubat', '🦇', 0.8, 7.5, 'wings', '#5b8def'), poke('Golbat', '🦇', 1.6, 55, 'wings', '#5b8def'),
+  poke('Oddish', '🌱', 0.5, 5.4, 'legs', '#5cb85c'), poke('Gloom', '🌺', 0.8, 8.6, 'humanoid', '#5cb85c'), poke('Vileplume', '🌺', 1.2, 18.6, 'humanoid', '#5cb85c'),
+  poke('Paras', '🍄', 0.3, 5.4, 'armor', '#a8b820'), poke('Parasect', '🍄', 1, 29.5, 'armor', '#a8b820'), poke('Venonat', '🪲', 1, 30, 'blob', '#a8b820'),
+  poke('Venomoth', '🦋', 1.5, 12.5, 'bug-wings', '#a8b820'), poke('Diglett', '🥔', 0.2, 0.8, 'blob', '#d4a95a'), poke('Dugtrio', '🥔', 0.7, 33.3, 'heads', '#d4a95a'),
+  poke('Meowth', '🐈', 0.4, 4.2, 'quadruped', '#c8b88a'), poke('Persian', '🐈', 1, 32, 'quadruped', '#c8b88a'), poke('Psyduck', '🦆', 0.8, 19.6, 'upright', '#ffd43b'),
+  poke('Golduck', '🦆', 1.7, 76.6, 'upright', '#4a90e2'), poke('Mankey', '🐒', 0.5, 28, 'ball', '#c0504d'), poke('Primeape', '🐒', 1, 32, 'upright', '#c0504d'),
+  poke('Growlithe', '🐕', 0.7, 19, 'quadruped', '#ff7a3d'), poke('Arcanine', '🐕', 1.9, 155, 'quadruped', '#ff7a3d'), poke('Poliwag', '🐸', 0.6, 12.4, 'legs', '#4a90e2'),
+  poke('Poliwhirl', '🐸', 1, 20, 'humanoid', '#4a90e2'), poke('Poliwrath', '🐸', 1.3, 54, 'humanoid', '#4a90e2'), poke('Abra', '🦊', 0.9, 19.5, 'upright', '#e8c34a'),
+  poke('Kadabra', '🦊', 1.3, 56.5, 'upright', '#e8c34a'), poke('Alakazam', '🧙', 1.5, 48, 'humanoid', '#e8c34a'), poke('Machop', '💪', 0.8, 19.5, 'upright', '#8fa3c7'),
+  poke('Machoke', '💪', 1.5, 70.5, 'humanoid', '#8fa3c7'), poke('Machamp', '💪', 1.6, 130, 'humanoid', '#8fa3c7'), poke('Bellsprout', '🌱', 0.7, 4, 'humanoid', '#5cb85c'),
+  poke('Weepinbell', '🌱', 1, 6.4, 'blob', '#5cb85c'), poke('Victreebel', '🌱', 1.7, 15.5, 'blob', '#5cb85c'), poke('Tentacool', '🦑', 0.9, 45.5, 'tentacles', '#4a90e2'),
+  poke('Tentacruel', '🦑', 1.6, 55, 'tentacles', '#4a90e2'), poke('Geodude', '🪨', 0.4, 20, 'arms', '#8d8378'), poke('Graveler', '🪨', 1, 105, 'blob', '#8d8378'),
+  poke('Golem', '🪨', 1.4, 300, 'blob', '#8d8378'), poke('Ponyta', '🐎', 1, 30, 'quadruped', '#ff7a3d'), poke('Rapidash', '🐎', 1.7, 95, 'quadruped', '#ff7a3d'),
+  poke('Slowpoke', '🦛', 1.2, 36, 'quadruped', '#ff9ecb'), poke('Slowbro', '🦛', 1.6, 78.5, 'upright', '#ff9ecb'), poke('Magnemite', '🧲', 0.3, 6, 'arms', '#ffd43b'),
+  poke('Magneton', '🧲', 1, 60, 'heads', '#ffd43b'), poke('Farfetch’d', '🦆', 0.8, 15, 'wings', '#a87b4a'), poke('Doduo', '🐦', 1.4, 39.2, 'legs', '#a87b4a'),
+  poke('Dodrio', '🐦', 1.8, 85.2, 'legs', '#a87b4a'), poke('Seel', '🦭', 1.1, 90, 'fish', '#e8f4ff'), poke('Dewgong', '🦭', 1.7, 120, 'fish', '#e8f4ff'),
+  poke('Grimer', '💩', 0.9, 30, 'arms', '#a05cc8'), poke('Muk', '💩', 1.2, 30, 'arms', '#a05cc8'), poke('Shellder', '🐚', 0.3, 4, 'ball', '#8a6fd1'),
+  poke('Cloyster', '🐚', 1.5, 132.5, 'ball', '#8a6fd1'), poke('Gastly', '👻', 1.3, 0.1, 'ball', '#705898'), poke('Haunter', '👻', 1.6, 0.1, 'arms', '#705898'),
+  poke('Gengar', '👻', 1.5, 40.5, 'upright', '#705898'), poke('Onix', '🐍', 8.8, 210, 'squiggle', '#8d8d8d'), poke('Drowzee', '🐘', 1, 32.4, 'humanoid', '#ff6fa0'),
+  poke('Hypno', '🐘', 1.6, 75.6, 'humanoid', '#ff6fa0'), poke('Krabby', '🦀', 0.4, 6.5, 'armor', '#e0533d'), poke('Kingler', '🦀', 1.3, 60, 'armor', '#e0533d'),
+  poke('Voltorb', '🔴', 0.5, 10.4, 'ball', '#e53935'), poke('Electrode', '🔴', 1.2, 66.6, 'ball', '#e53935'), poke('Exeggcute', '🥚', 0.4, 2.5, 'heads', '#f5e6c8'),
+  poke('Exeggutor', '🌴', 2, 120, 'legs', '#5cb85c'), poke('Cubone', '🦴', 0.4, 6.5, 'upright', '#b8834f'), poke('Marowak', '🦴', 1, 45, 'upright', '#b8834f'),
+  poke('Hitmonlee', '🦵', 1.5, 49.8, 'humanoid', '#c0504d'), poke('Hitmonchan', '🥊', 1.4, 50.2, 'humanoid', '#c0504d'), poke('Lickitung', '👅', 1.2, 65.5, 'upright', '#ff9ecb'),
+  poke('Koffing', '🟣', 0.6, 1, 'ball', '#a05cc8'), poke('Weezing', '🟣', 1.2, 9.5, 'heads', '#a05cc8'), poke('Rhyhorn', '🦏', 1, 115, 'quadruped', '#9a9a9a'),
+  poke('Rhydon', '🦏', 1.9, 120, 'upright', '#9a9a9a'), poke('Chansey', '🥚', 1.1, 34.6, 'upright', '#ff9ecb'), poke('Tangela', '🧶', 1, 35, 'legs', '#3d6fd9'),
+  poke('Kangaskhan', '🦘', 2.2, 80, 'upright', '#a87b4a'), poke('Horsea', '🐠', 0.4, 8, 'blob', '#4a90e2'), poke('Seadra', '🐠', 1.2, 25, 'blob', '#4a90e2'),
+  poke('Goldeen', '🐟', 0.6, 15, 'fish', '#ff9a5c'), poke('Seaking', '🐟', 1.3, 39, 'fish', '#ff9a5c'), poke('Staryu', '⭐', 0.8, 34.5, 'blob', '#d4a95a'),
+  poke('Starmie', '⭐', 1.1, 80, 'blob', '#8a6fd1'), poke('Mr. Mime', '🤡', 1.3, 54.5, 'humanoid', '#ff6fa0'), poke('Scyther', '🦗', 1.5, 56, 'bug-wings', '#a8b820'),
+  poke('Jynx', '💃', 1.4, 40.6, 'humanoid', '#8fe3ff'), poke('Electabuzz', '🐅', 1.1, 30, 'upright', '#ffd43b'), poke('Magmar', '🦎', 1.3, 44.5, 'upright', '#ff7a3d'),
+  poke('Pinsir', '🪲', 1.5, 55, 'humanoid', '#a8b820'), poke('Tauros', '🐂', 1.4, 88.4, 'quadruped', '#a87b4a'), poke('Magikarp', '🐟', 0.9, 10, 'fish', '#ff7043'),
+  poke('Gyarados', '🐉', 6.5, 235, 'squiggle', '#4a90e2'), poke('Lapras', '🦕', 2.5, 220, 'fish', '#4a90e2'), poke('Ditto', '😊', 0.3, 4, 'ball', '#c6a1e0'),
+  poke('Eevee', '🦊', 0.3, 6.5, 'quadruped', '#b8834f'), poke('Vaporeon', '🦊', 1, 29, 'quadruped', '#4a90e2'), poke('Jolteon', '🦊', 0.8, 24.5, 'quadruped', '#ffd43b'),
+  poke('Flareon', '🦊', 0.9, 25, 'quadruped', '#ff7a3d'), poke('Porygon', '🔷', 0.8, 36.5, 'legs', '#ff6f8f'), poke('Omanyte', '🐚', 0.4, 7.5, 'tentacles', '#5bb8ff'),
+  poke('Omastar', '🐚', 1, 35, 'tentacles', '#5bb8ff'), poke('Kabuto', '🦀', 0.5, 11.5, 'armor', '#a87b4a'), poke('Kabutops', '🦂', 1.3, 40.5, 'upright', '#b8a038'),
+  poke('Aerodactyl', '🦇', 1.8, 59, 'wings', '#a8a0b8'), poke('Snorlax', '🐻', 2.1, 460, 'blob', '#2f7f8f'), poke('Articuno', '🦅', 1.7, 55.4, 'wings', '#8fe3ff'),
+  poke('Zapdos', '🦅', 1.6, 52.6, 'wings', '#ffd43b'), poke('Moltres', '🦅', 2, 60, 'wings', '#ff7a3d'), poke('Dratini', '🐍', 1.8, 3.3, 'squiggle', '#5b8def'),
+  poke('Dragonair', '🐍', 4, 16.5, 'squiggle', '#5b8def'), poke('Dragonite', '🐉', 2.2, 210, 'upright', '#ffb347'), poke('Mewtwo', '👽', 2, 122, 'upright', '#c9a7e8'),
+  poke('Mew', '🐈', 0.4, 4, 'upright', '#ff9ecb'),
+  // later-generation favourites (same method, hand-estimated volume)
+  ['Aron', '🦏', 1.8, 60, 'blob', '#9aa3ad'], ['Cosmoem', '🌕', 1908, 999.9, 'ball', '#e8b84a'], ['Wailord', '🐋', .00125, 398, 'blob', '#3d7fd9'],
   ['Metagross', '🕷️', .3, 550, 'box', '#4a78b5'], ['Steelix', '🐍', .1, 400, 'long', '#9aa3ad'], ['Kyogre', '🐋', .033, 352, 'flat', '#1e5bb8'],
-  ['Groudon', '🦖', .1, 950, 'blob', '#d84343'], ['Voltorb', '⚪', .16, 10.4, 'ball', '#e53935'], ['Bronzor', '🛡️', 3.08, 60.5, 'flat', '#3d8a8a'],
-  ['Klink', '⚙️', 2.1, 21, 'flat', '#cfd6de'], ['Magnemite', '🧲', 1.15, 6, 'blob', '#9aa3ad'], ['Beldum', '🔩', 2.5, 95.2, 'blob', '#4a78b5'],
-  ['Psyduck', '🦆', .23, 19.6, 'blob', '#ffd43b'], ['Lapras', '🦕', .096, 220, 'box', '#5bb8ff'], ['Gyarados', '🐉', .057, 235, 'long', '#3d7fd9'],
+  ['Groudon', '🦖', .1, 950, 'blob', '#d84343'], ['Bronzor', '🛡️', 3.08, 60.5, 'flat', '#3d8a8a'], ['Klink', '⚙️', 2.1, 21, 'flat', '#cfd6de'],
+  ['Beldum', '🔩', 2.5, 95.2, 'blob', '#4a78b5'],
   // movies, comics & games (canon sizes/weights where they exist)
   ['Mjölnir', '🔨', 6, 19.2, 'blob', '#c3cad3'], ["Captain America's Shield", '🛡️', 3, 5.4, 'thin', '#d84343'], ['The One Ring', '💍', 19.3, .008, 'frame', '#ffc531'],
   ['Excalibur', '🗡️', 7.8, 1.5, 'long'], ['Heart of Te Fiti', '🟢', 2.95, .1, 'blob'], ['Groot', '🌳', .6, 200, 'long'],
@@ -201,23 +252,11 @@ const ITEMS_RAW = [
   ['The Titanic', '🚢', 3, 52310000, 'shell', '#3a3f4b'], ['Minecraft Dirt Block', '🟫', 1.5, 1500, 'box'], ['Minecraft Diamond Block', '🟦', 3.51, 3510, 'box', '#7ff0ff'],
   ['Minecraft TNT Block', '🟥', 1.65, 1650, 'box'], ['Patrick Star', '⭐', 1.07, .5, 'flat', '#ff9ecb'], ['SpongeBob', '🧽', 1.1, .2, 'box', '#ffe14d'],
   ['Lightsaber (switched off)', '🔦', 3.1, 1, 'long', '#b0b8c4'],
-];
-const MATS = [
-  { n: 'Gold', w: 0.25, d: 19.3, c: '#ffc531', l: .08 }, { n: 'Silver', w: 0.25, d: 10.5, c: '#d9dee5', l: .2 }, { n: 'Copper', w: 0.5, d: 8.96, c: '#c8693a' },
-  { n: 'Iron', w: 1, d: 7.87, c: '#8b97a5' }, { n: 'Lead', w: 0.6, d: 11.34, c: '#5f6577', l: -.15 }, { n: 'Aluminum', w: 1, d: 2.7, c: '#c3cad3', l: .15 },
-  { n: 'Titanium', w: 1, d: 4.51, c: '#9aa3ad' }, { n: 'Platinum', w: 0.15, d: 21.45, c: '#e5e4e2', l: .2 }, { n: 'Osmium', w: 0.2, d: 22.59, c: '#7084c2' },
-  { n: 'Tungsten', w: 0.2, d: 19.25, c: '#7d8590' }, { n: 'Glass', w: 1, d: 2.5, c: '#8fe3ff', l: .25, a: .6 }, { n: 'Granite', w: 1, d: 2.7, c: '#9a9a9a' },
-  { n: 'Concrete', w: 1, d: 2.4, c: '#a8a8a0' }, { n: 'Diamond', w: 1, d: 3.51, c: '#d8fbff', l: .4, a: .85 }, { n: 'Ice', w: 1, d: .917, c: '#bff3ff', l: .35, a: .8 },
-  { n: 'Wooden', w: 1, d: .6, c: '#a8743f' }, { n: 'Cork', w: 1, d: .24, c: '#d1a370', l: .1 }, { n: 'Styrofoam', w: 1, d: .05, c: '#ffffff', l: .5 },
-  { n: 'Chocolate', w: 1, d: 1.3, c: '#7a4426', l: -.2 }, { n: 'Wax', w: 1, d: .9, c: '#fff3c4', l: .3 },
+  ['Optimus Prime', '🤖', .23, 4300, 'long', '#d84343'], ['Iron Man (suited up)', '🦾', 1.7, 179, 'long', '#c0392b'], ['Sonic the Hedgehog', '🦔', .39, 35, 'blob', '#3d6fd9'],
+  ['Thanos', '🦸', 2.75, 447, 'long', '#8e6bbf'], ['The Thing', '🪨', 2.5, 227, 'blob', '#e07a3d'], ['Baymax', '🤖', .1, 35, 'blob', '#f4f6f8'],
+  ['Hello Kitty', '🐱', .4, .6, 'blob', '#ffffff'],
 ];
 const ITEMS = ITEMS_RAW.map(([name, e, d, m, shape, c]) => ({ name, e, d, m, shape, c }));
-// A material version only exists when it means something new.
-const matOK = (b, mat) => !NO_MAT.has(b.shape) && b.m < 1000 && !b.name.includes(mat.n) && Math.abs(mat.d - b.d) / b.d > .05;
+const makeVariant = b => ({ name: b.name, base: b, den: b.d, ...physics(b.d, b.m, b.shape) });
 
-function makeVariant(b, mat) {
-  const den = mat ? mat.d : b.d, mass = b.m * den / b.d;
-  return { name: mat ? `${mat.n} ${b.name}` : b.name, base: b, mat, den, ...physics(den, mass, b.shape) };
-}
-
-if (typeof module !== 'undefined') module.exports = { ITEMS, MATS, SHAPES, MAXD, SINK_TIME, physics, makeVariant, matOK };
+if (typeof module !== 'undefined') module.exports = { ITEMS, SHAPES, MAXD, SINK_TIME, physics, makeVariant };
