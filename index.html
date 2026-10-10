@@ -166,7 +166,9 @@ function emojiOK(e) {
 const BASE = ITEMS.filter(b => emojiOK(b.e)).length > ITEMS.length / 2 ? ITEMS.filter(b => emojiOK(b.e)) : ITEMS; // detection unreliable → keep all
 
 // ================= PICKING (physics lives in items.js) =================
-const makeItem = () => makeVariant(pick(BASE));
+// Pokémon are ~65% of the list; draw them a third of the time so everything else still shows up
+const POKES = BASE.filter(b => b.poke), OTHERS = BASE.filter(b => !b.poke);
+const makeItem = () => makeVariant(pick(Math.random() < .35 ? POKES : OTHERS));
 // Difficulty: two sinkers must land within a depth window that tightens with score.
 // score 0 → ≥50% apart (easy) · 3 → 19–56% · 6 → 7–21% · 10 → 2–6% (really hard).
 function difficulty(sc) { const lo = Math.max(.02, .5 * Math.pow(.72, sc)); return { lo, hi: sc < 2 ? 1 : Math.min(1, lo * 3) }; }
@@ -629,7 +631,7 @@ addEventListener('keydown', e => {
 addEventListener('resize', () => { resize(); if (state === 'choose' || state === 'start') cam.y = camY0(); });
 
 resize(); genWorld(); updateScore();
-$('count').textContent = `${BASE.length} objects to drop · ${fmt(MAXD)} of ocean`;
+$('count').textContent = `${BASE.length.toLocaleString()} objects to drop · ${fmt(MAXD)} of ocean`;
 newRound(); state = 'start'; cam.y = lastCamY = camY0();
 requestAnimationFrame(frame);
 </script>

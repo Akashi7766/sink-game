@@ -2,7 +2,7 @@
 
 A browser game: two objects are dropped over the Mariana Trench. Pick the one that sinks **deeper in 30 minutes**. Guess right to score and keep going, guess wrong and it's game over.
 
-- 545 objects: everyday things, animals, all 151 original Pokémon (from official Pokédex height and weight) and other pop culture
+- 1,576 objects: everyday things, animals and sea life, landmarks, vehicles, food, all 1,025 Pokémon (official Pokédex weights via PokéAPI) and other pop culture with canon stats
 - Difficulty ramps up fast: by a score of 10 the two depths are within a few percent
 - Rounds are either “which sinks deeper”, “which floating thing dips deeper”, or “does it even sink?”
 - Press **F** (or the ⏩ button) to cycle 1× / 2× / 4× speed
